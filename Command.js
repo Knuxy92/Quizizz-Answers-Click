@@ -1,60 +1,147 @@
+(() => {
+  "use strict";
 
-(function() {
-    const CONFIGS = {"Delay Click": 0, "Enabled Delay": false}
+  const CONFIGS = {
+    "Delay Click": 5000,
+    "Min Delay Click": 1500,
+    "Enabled Delay": true,
+    "Disable Auto Click": true,
+  };
 
-    const findGameId = () => {
-        const allButtons = document.querySelectorAll('[data-testid="button-text"]');
-        for (let el of allButtons) {
-            const cleanText = el.innerText.replace(/\s/g, '');
-            if (/^\d{6,}$/.test(cleanText)) {
-                return cleanText;
-            }
-        }
-        return null;
-    };
+  const quizDatabase = new Map();
+  const cleanText = (text) => {
+    if (!text) return "";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = text;
+    return (tmp.textContent || tmp.innerText || "")
+      .replace(/\s+/g, "")
+      .trim()
+      .toLowerCase();
+  };
 
-    window.open(`https://api.cheatnetwork.eu/quizizz/${findGameId()}/answers`)
+  const getStoreState = (storeName) => {
+    const root =
+      document.querySelector("#root") || document.querySelector("#app");
+    const pinia = root?.__vue_app__?.config.globalProperties.$pinia;
+    return pinia ? pinia._s.get(storeName)?.$state : null;
+  };
 
-    const rawData = prompt(`https://api.cheatnetwork.eu/quizizz/${findGameId()}/answers\nCopy json Place Here : `);
-    let quizData;
+  const fetchApi = async () => {
     try {
-        quizData = JSON.parse(rawData);
-        console.log("Loading Json Done");
-    } catch (e) {
-        return alert("Vaild Json");
-    }
+      const roomHash = getStoreState("gameData")?.roomHash;
 
-    function solveCurrentQuestion() {
-        const questionEl = document.querySelector('#questionText .content-slot');
-        if (!questionEl) return;
+      if (!roomHash)
+        return console.warn(
+          "Not Found roomHash from gameData store. Quiz database will not be loaded.",
+        );
 
-        const currentText = questionEl.innerText.trim();
-        
-        const matched = quizData.answers.find(q => {
-            const cleanApiQ = q.question.replace(/<[^>]*>?/gm, '').trim();
-            return cleanApiQ === currentText;
-        });
+      const res = await fetch(
+        `https://wayground.com/_api/main/game/${roomHash}`,
+      );
+      if (!res.ok) throw new Error("HTTP " + res.status);
 
-        if (matched) {
-            const correctIndex = matched.answer[0];
-            const answerText = matched.options[correctIndex].text;
-            
-            const options = [...document.querySelectorAll('#optionText .content-slot')];
-            const targetBtn = options.find(opt => opt.innerText.trim() === answerText.trim());
+      const resData = await res.json();
+      const questions = resData?.data?.questions || [];
 
-            if (targetBtn) {
-                if (CONFIGS["Enabled Delay"]){
-                    setTimeout(() => {
-                        targetBtn.click();
-                    }, CONFIGS["Delay Click"]);
-                }else{
-                    targetBtn.click();
-                }
-            }
+      questions.forEach((q) => {
+        const IdQuestion = q._id;
+        const answerRaw = q.structure?.answer;
+        const options = q.structure?.options || [];
+        const correctIndices = Array.isArray(answerRaw)
+          ? answerRaw
+          : typeof answerRaw === "number"
+            ? [answerRaw]
+            : [];
+
+        const correctAnswers = correctIndices
+          .map((idx) => (options[idx] ? cleanText(options[idx].text) : ""))
+          .filter(Boolean);
+
+        if (IdQuestion && correctAnswers.length > 0) {
+          quizDatabase.set(IdQuestion, correctAnswers);
         }
+      });
+    } catch (err) {
+      console.error("Fetch API Error:", err.message);
+    }
+  };
+
+  const getCurrentQuestionId = () => {
+    const gameQuestions = getStoreState("gameQuestions");
+    if (gameQuestions) {
+      const id =
+        gameQuestions.currentId ||
+        gameQuestions.currentQuestionId ||
+        gameQuestions.cachedCurrentQuestionId;
+      if (id) return id;
     }
 
-    setInterval(() => {
-        solveCurrentQuestion();
-    }, 1000);
+    const gameFlow = getStoreState("gameFlow");
+    if (gameFlow) {
+      const id = gameFlow.currentQuestionId || gameFlow.cachedCurrentQuestionId;
+      if (id) return id;
+    }
+
+    return null;
+  };
+
+  const getRandomDelay = (min, max) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  };
+
+  const solveCurrentQuestion = () => {
+    if (quizDatabase.size === 0) return;
+
+    const currentid = getCurrentQuestionId();
+    if (!currentid) return;
+    const targetAnswers = quizDatabase.get(currentid);
+
+    if (targetAnswers) {
+      const options = Array.from(
+        document.querySelectorAll(
+          '[role="option"], button[class*="option"], .is-selectable',
+        ),
+      );
+
+      let btnIndex = 0;
+      const targetBtn = options.find((opt) => {
+        const slotEl = opt.querySelector("div.content-slot");
+        if (!slotEl) return false;
+        const currentText = slotEl.innerText.trim();
+        btnIndex += 1;
+
+        return targetAnswers.includes(cleanText(currentText));
+      });
+
+      if (targetBtn && !targetBtn.dataset.botClicked) {
+        document.title = "Playing a Game - Wayground " + btnIndex;
+        const FindText =
+          targetBtn.querySelector("div.content-slot p") ||
+          targetBtn.querySelector("div.content-slot");
+        if (FindText) {
+          FindText.style.setProperty("font-weight", "bold", "important");
+        }
+        if (CONFIGS["Disable Auto Click"]) return;
+
+        targetBtn.dataset.botClicked = "true";
+
+        const clickAction = () => {
+          targetBtn.click();
+        };
+
+        if (CONFIGS["Enabled Delay"]) {
+          setTimeout(
+            clickAction,
+            getRandomDelay(CONFIGS["Min Delay Click"], CONFIGS["Delay Click"]),
+          );
+        } else {
+          clickAction();
+        }
+      }
+    }
+  };
+
+  fetchApi().then(() => {
+    setInterval(solveCurrentQuestion, 1000);
+  });
 })();
