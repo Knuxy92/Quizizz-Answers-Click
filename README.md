@@ -1,97 +1,76 @@
-# Quizizz Auto Solver (Browser Console Script)
-
-A lightweight JavaScript tool designed to automate answer selection in Quizizz by cross-referencing live questions with external API data.
-
----
-
-## Overview
-
-This script runs directly in your browser's developer console. It identifies the current Quizizz Game ID, opens a data source for the answers, and automates the clicking process based on the provided JSON data.
-
-## Features
-
-* **Automated Detection**: Automatically extracts the Game ID from the active session.
-* **Smart Clicking**: Matches on-screen questions with the answer database.
-* **Adjustable Delay**: Configurable timing to simulate human interaction.
-* **Zero Installation**: No extensions or third-party software required.
+# Wayground Quiz Auto Solver
+> [!NOTE]
+> Requires a Wayground game/quiz room to be open in your browser before injecting the script.
 
 ---
 
-## How To Use
+## Credit
 
-### 1. Start a Quizizz Game
+Developed by: **Knuxy92** Last updated: `05/20/26`
 
-Log in and enter a live Quizizz game in your web browser.
+---
 
-### 2. Open the Browser Console
+## How It Works
 
-Access the developer tools by pressing:
+The script hooks into the web application's **Pinia Store** to retrieve the active `roomHash` and `currentQuestionId`. It then fetches the correct answers directly from the official Wayground API and automatically highlights or clicks the correct option in real-time.
 
-* **Windows/Linux**: `F12` or `Ctrl + Shift + J`
-* **macOS**: `Cmd + Option + J`
+No external AI or manual database entry required.
 
-### 3. Execute the Script
+---
 
-Copy the full JavaScript code and paste it into the console, then press **Enter**.
+## How to Use
 
-### 4. Import Answer Data
-
-Upon execution, a new browser tab will open with the following URL structure:
-`https://api.cheatnetwork.eu/quizizz/{GAME_ID}/answers`
-
-1. **Copy** the entire text (JSON) displayed in that tab.
-2. Return to the Quizizz tab and **Paste** the text into the prompt dialog that appeared.
-3. Look for the `Loading Json Done` message in the console.
+1. Enter your target **Wayground** game room.
+2. Press `Ctrl` + `Shift` + `I` (or `Cmd` + `Option` + `I` on Mac) to open **DevTools**.
+3. Navigate to the **Console** tab.
+4. Paste the code from `Command.js` and hit **Enter**.
 
 ---
 
 ## Configuration
 
-Modify the `CONFIGS` object at the top of the script to change behavior:
+Edit the `CONFIGS` block at the top of `Command.js` before running to customize behavior:
 
-| Setting | Type | Description |
-| --- | --- | --- |
-| `Delay Click` | Number | Milliseconds to wait before clicking (e.g., 2000 = 2 seconds). |
-| `Enabled Delay` | Boolean | Set to `true` to activate the delay; `false` for instant clicks. |
-
----
-
-## Technical Specifications
-
-### Expected JSON Structure
-
-The script requires data in the following format to function correctly:
-
-```json
-{
-  "answers": [
-    {
-      "question": "What is 2 + 2?",
-      "options": [
-        { "text": "3" },
-        { "text": "4" },
-        { "text": "5" }
-      ],
-      "answer": [1]
-    }
-  ]
-}
-
-```
-
-*Note: The `answer` field uses a zero-based index for the `options` array.*
+| Key | Description | Default |
+|-----|-------------|---------|
+| `Delay Click` | Maximum delay time (ms) before auto-clicking | `5000` |
+| `Min Delay Click` | Minimum delay time (ms) before auto-clicking | `1500` |
+| `Enabled Delay` | Enable randomized delay between min/max before clicking | `true` |
+| `Enabled Auto Click` | Automatically click the correct answer when found | `false` |
+| `Enabled Bold Font Answer` | Make the correct answer text **bold** for legit/manual mode | `false` |
+| `Eanbled Show Answer Title` | Update browser tab title with the correct button index | `false` |
+| `Eanbled Show Answer Href` | Append the correct answer index to the URL (e.g., `...A3`) without reloading | `true` |
 
 ---
 
 ## Limitations
 
-* Supports Multiple Choice questions only.
-* Requires exact string matching for question text.
-* Image-based questions or "Fill in the blanks" may not be supported.
-* Dependent on the availability of the external API.
+- **Framework Dependent:** Relies entirely on Vue/Pinia store structures (`__vue_app__.$pinia`). May break if the site updates its frontend architecture.
+- **Room Hash Required:** If the `roomHash` cannot be found in the store state, the quiz database will fail to fetch.
+- **Same-Origin Policy:** URL modification via History API is bound to the same domain.
 
 ---
 
 ## License
 
-Provided "as-is" without warranty of any kind. For personal research and educational use only.
+MIT License
+
+Copyright (c) 2026 YourName
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
