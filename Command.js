@@ -5,7 +5,11 @@
     "Delay Click": 5000,
     "Min Delay Click": 1500,
     "Enabled Delay": true,
-    "Disable Auto Click": true,
+    "Enabled Auto Click": false,
+    // Legit Mode
+    "Enabled Bold Font Answer": false,
+    "Eanbled Show Answer Title": false,
+    "Eanbled Show Answer Href": true,
   };
 
   const quizDatabase = new Map();
@@ -89,14 +93,14 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   };
 
-  const solveCurrentQuestion = () => {
+  const solveQuestion = () => {
     if (quizDatabase.size === 0) return;
 
     const currentid = getCurrentQuestionId();
     if (!currentid) return;
-    const targetAnswers = quizDatabase.get(currentid);
+    const Answers = quizDatabase.get(currentid);
 
-    if (targetAnswers) {
+    if (Answers) {
       const options = Array.from(
         document.querySelectorAll(
           '[role="option"], button[class*="option"], .is-selectable',
@@ -110,20 +114,28 @@
         const currentText = slotEl.innerText.trim();
         btnIndex += 1;
 
-        return targetAnswers.includes(cleanText(currentText));
+        return Answers.includes(cleanText(currentText));
       });
 
-      if (targetBtn && !targetBtn.dataset.botClicked) {
+      if (CONFIGS["Eanbled Show Answer Title"])
         document.title = "Playing a Game - Wayground " + btnIndex;
-        const FindText =
-          targetBtn.querySelector("div.content-slot p") ||
-          targetBtn.querySelector("div.content-slot");
-        if (FindText) {
-          FindText.style.setProperty("font-weight", "bold", "important");
-        }
-        if (CONFIGS["Disable Auto Click"]) return;
 
-        targetBtn.dataset.botClicked = "true";
+      if (CONFIGS["Eanbled Show Answer Href"]) {
+        if (!window.location.href.endsWith(`A${btnIndex}`))
+          history.pushState({}, "", `${window.location.href}A${btnIndex}`);
+      }
+
+
+      if (targetBtn && !targetBtn.dataset.botClicked) {
+        if (CONFIGS["Enabled Bold Font Answer"]) {
+          const FindText =
+            targetBtn.querySelector("div.content-slot p") ||
+            targetBtn.querySelector("div.content-slot");
+          if (FindText) {
+            FindText.style.setProperty("font-weight", "bold", "important");
+          }
+        }
+        if (!CONFIGS["Enabled Auto Click"]) return;
 
         const clickAction = () => {
           targetBtn.click();
@@ -142,6 +154,6 @@
   };
 
   fetchApi().then(() => {
-    setInterval(solveCurrentQuestion, 1000);
+    setInterval(solveQuestion, 100);
   });
 })();
