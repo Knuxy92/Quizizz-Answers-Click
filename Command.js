@@ -2,14 +2,14 @@
   "use strict";
 
   const CONFIGS = {
-    "Manual Input Answer": false,
-    
+    "Manual Input Answer": true,
+
     "Delay Click": 5000,
     "Min Delay Click": 1500,
     "Enabled Delay": true,
     "Enabled Auto Click": false,
+    
     "Enabled Block Report Anti Cheat": true,
-
     "Enabled Bold Font Answer": true,
     "Eanbled Show Answer Title": false,
     "Eanbled Show Answer Href": true,
@@ -29,10 +29,17 @@
 
   let piniaCache = null;
   const getStoreState = (storeName) => {
-    if (!piniaCache) {
-      piniaCache = document.querySelector("#root, #app")?.__vue_app__?.config.globalProperties.$pinia;
-    }
+    piniaCache ??= document.querySelector("#root, #app")?.__vue_app__?.config.globalProperties.$pinia;
     return piniaCache?._s.get(storeName)?.$state || null;
+  };
+
+  const processQuestions = (questions, mapFn) => {
+    (questions || []).forEach((q) => {
+      const { id, ansRaw, opts } = mapFn(q);
+      const indices = Array.isArray(ansRaw) ? ansRaw : typeof ansRaw === "number" ? [ansRaw] : [];
+      const answers = indices.map((idx) => opts[idx] ? cleanText(opts[idx].text) : "").filter(Boolean);
+      if (id && answers.length) quizDatabase.set(id, answers);
+    });
   };
 
   const fetchApi = async () => {
@@ -40,33 +47,34 @@
       const gameData = getStoreState("gameData");
       if (!gameData?.roomHash) return;
 
-      let resData;
       if (CONFIGS["Manual Input Answer"]) {
         window.open(`https://api.cheatnetwork.eu/quizizz/${gameData.roomCode}/answers`);
-        resData = JSON.parse(prompt(`https://api.cheatnetwork.eu/quizizz/${gameData.roomCode}/answers\nCopy json Place Here : `));
+        const resData = JSON.parse(prompt(`https://api.cheatnetwork.eu/quizizz/${gameData.roomCode}/answers\nCopy json Place Here : `));
+        
+        processQuestions(resData?.answers, (q) => ({
+          id: q?.id,
+          ansRaw: q?.answer,
+          opts: q?.options || []
+        }));
       } else {
         const res = await fetch(`https://wayground.com/_api/main/game/${gameData.roomHash}`);
         if (!res.ok) throw new Error();
-        resData = await res.json();
+        const resData = await res.json();
+        
+        processQuestions(resData?.data?.questions, (q) => ({
+          id: q?._id,
+          ansRaw: q?.structure?.answer,
+          opts: q?.structure?.options || []
+        }));
       }
-
-      (resData?.data?.questions || []).forEach((q) => {
-        const ansRaw = q.structure?.answer;
-        const opts = q.structure?.options || [];
-        const indices = Array.isArray(ansRaw) ? ansRaw : typeof ansRaw === "number" ? [ansRaw] : [];
-        const answers = indices.map((idx) => opts[idx] ? cleanText(opts[idx].text) : "").filter(Boolean);
-        if (q._id && answers.length) quizDatabase.set(q._id, answers);
-      });
     } catch (err) {}
   };
 
   const getCurrentQuestionId = () => {
     const qState = getStoreState("gameQuestions");
-    if (qState && (qState.currentId || qState.currentQuestionId || qState.cachedCurrentQuestionId)) {
-      return qState.currentId || qState.currentQuestionId || qState.cachedCurrentQuestionId;
-    }
     const fState = getStoreState("gameFlow");
-    return fState?.currentQuestionId || fState?.cachedCurrentQuestionId || null;
+    return qState?.currentId || qState?.currentQuestionId || qState?.cachedCurrentQuestionId || 
+           fState?.currentQuestionId || fState?.cachedCurrentQuestionId || null;
   };
 
   const solveQuestion = () => {
@@ -77,7 +85,7 @@
     const answers = quizDatabase.get(currentId);
     if (!answers) return;
 
-    const options = Array.from(document.querySelectorAll('[role="option"], button[class*="option"], .is-selectable'));
+    const options = [...document.querySelectorAll('[role="option"], button[class*="option"], .is-selectable')];
     let btnIndex = 0;
 
     const targetBtn = options.find((opt) => {
