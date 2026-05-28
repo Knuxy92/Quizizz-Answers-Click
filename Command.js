@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIGS = {
-    "Manual Input Answer": false,
+    "Manual Input Answer": true,
 
     "Delay Click": 5000,
     "Min Delay Click": 1500,
