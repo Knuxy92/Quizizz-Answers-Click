@@ -3,6 +3,7 @@
 
   const CONFIGS = {
     "Manual Input Answer": true,
+    "Method Manual Input Answer": "file", // prompt for pc / file for mobile
 
     "Delay Click": 5000,
     "Min Delay Click": 1500,
@@ -57,36 +58,43 @@
       const gameData = getStoreState("gameData");
       if (!gameData?.roomHash) return;
 
+      let resData = null;
+
       if (CONFIGS["Manual Input Answer"]) {
         window.open(
           `https://api.cheatnetwork.eu/quizizz/${gameData.roomCode}/answers`,
           "_blank",
         );
 
-        let resData = null;
-        function askForInput(message) {
-          if (document.visibilityState === "visible") {
-            const val = prompt(message);
+        resData = await new Promise((resolve) => {
+          const ask = (message) => {
+            if (document.visibilityState !== "visible") {
+              setTimeout(() => ask(message), 1000);
+              return;
+            }
 
-            if (val === null || val.trim() === "") {
-              alert("Please enter JSON before continuing!");
-              setTimeout(() => askForInput(message), 100);
+            if (CONFIGS["Method Manual Input Answer"] === "file") {
+              setTimeout(() => {
+                triggerFileInput((data) => resolve(JSON.parse(data)));
+              }, 1000);
             } else {
-              try {
-                resData = JSON.parse(val);
-              } catch (e) {
-                alert("Syntax Error" +e);
-                setTimeout(() => askForInput(message), 100);
+              const val = prompt(message);
+              if (val && val.trim() !== "") {
+                try {
+                  resolve(JSON.parse(val));
+                } catch (e) {
+                  alert("Syntax Error: " + e);
+                  ask(message);
+                }
+              } else {
+                alert("Please enter JSON!");
+                ask(message);
               }
             }
-          } else {
-            setTimeout(() => askForInput(message), 1000);
-          }
-        }
+          };
 
-        setTimeout(() => {
-          askForInput("Please copy this message and paste it into the input:");
-        }, 1000);
+          ask("Please copy/paste JSON or Upload file:");
+        });
 
         processQuestions(resData?.answers, (q) => ({
           id: q?.id,
@@ -98,16 +106,39 @@
           `https://wayground.com/_api/main/game/${gameData.roomHash}`,
         );
         if (!res.ok) throw new Error();
-        const resData = await res.json();
+        const json = await res.json();
 
-        processQuestions(resData?.data?.questions, (q) => ({
+        processQuestions(json?.data?.questions, (q) => ({
           id: q?._id,
           ansRaw: q?.structure?.answer,
           opts: q?.structure?.options || [],
         }));
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error("Fetch Error:", err);
+    }
   };
+
+  function triggerFileInput(callback) {
+    let input = document.getElementById("dynamic-json-input");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.id = "dynamic-json-input";
+      input.style.display = "none";
+      document.body.appendChild(input);
+
+      input.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => callback(ev.target.result);
+          reader.readAsText(file);
+        }
+      });
+    }
+    setTimeout(() => input.click(), 100);
+  }
 
   const getCurrentQuestionId = () => {
     const qState = getStoreState("gameQuestions");
